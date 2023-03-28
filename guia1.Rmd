@@ -1,0 +1,115 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+EJERCICIO 1
+```{r}
+resultadosBeta = rbeta(100000, 5, 12)
+
+cantidad = c()
+j=1
+for (i in resultadosBeta){
+  cantidad[j]= sum(rbinom(5, 1, i))
+  j=j+1
+}
+
+table(cantidad)/100000
+```
+
+EJERCICIO 3
+```{r}
+grilla = c(0:10000)/10000
+prior = c()
+for (j in c(1:length(grilla))){
+  if (j<length(grilla)/2){
+    prior[j] = grilla[j]*2
+  }
+  else{
+    prior[j] = -1*grilla[j]*2 + 2
+  }
+}
+```
+```{r}
+plot(grilla, prior)
+```
+```{r}
+datos = c(1,0,1,1,1,0,1,0,1)
+```
+```{r}
+likeliHoodDadoDatosBinomial = function(grilla, experimentos, exitos){
+  likelihood = c()
+  for (j in c(1:length(grilla))){
+    likelihood[j] = (grilla[j])^exitos * (1- grilla[j])^(experimentos - exitos)
+  }
+  return(likelihood)
+}
+```
+```{r}
+like = likeliHoodDadoDatosBinomial(grilla, length(datos), sum(datos))
+plot(grilla, like)
+```
+```{r}
+posteriorNoNormalizada = function(grilla, likelihood, prior){
+  posteiorSinNorm = c()
+  for (j in c(1:length(grilla))){
+    posteiorSinNorm[j] = likelihood[j]*prior[j]
+  }
+  return(posteiorSinNorm)
+}
+
+posteriorNormalizada = function(posteriorSinNorm){
+  posteriorNormal = posteriorSinNorm/sum(posteriorSinNorm)
+  return(posteriorNormal)
+}
+```
+```{r}
+post = posteriorNormalizada(posteriorNoNormalizada(grilla, like, prior))
+plot(grilla, post)
+
+```
+
+EJERCICIO 4
+```{r}
+generarNdatosDadoTheta = function(N, theta){
+  return(rbinom(N,1, theta))
+}
+```
+```{r}
+generarPosteriorDadoPriorYDatos = function(grilla, prior, datosBinomial){
+  like = likeliHoodDadoDatosBinomial(grilla, length(datosBinomial), sum(datosBinomial) )
+  posteriorNoNorm = posteriorNoNormalizada(grilla, like, prior)
+  posterior = posteriorNormalizada(posteriorNoNorm)
+  return(posterior)
+}
+```
+
+```{r}
+N = 40
+theta = 0.3
+grilla = c(0:10000)/10000
+priorUnif = rep(1, length(grilla))
+
+datosGenerados = generarNdatosDadoTheta(N, theta)
+post = generarPosteriorDadoPriorYDatos(grilla, priorUnif, datosGenerados)
+
+quantilGrilla = function(grilla,post, bordeIzq, bordeDer){ # te agarra de p a (1-p)
+  q1 = 1
+  while(sum(post[1:q1])<bordeIzq){
+    q1 = q1 + 1
+  }
+  q3 = q1+1
+  while(sum(post[1:q3])<bordeDer){
+    q3 = q3 + 1
+  }
+  return(c(grilla[q1],grilla[q3]))
+}
+intervalo = quantilGrilla(grilla, post, 0.25, 0.75)
+longIntervalo = intervalo[2] - intervalo[1]
+longIntervalo
+```
+
+```{r}
+plot(grilla,post)
+```
+
+Con aproximadamente 40 muestras podes usualmente tener intervalos de tamanio 0.1 que contienen al 50% de la probabilidad de theta.
