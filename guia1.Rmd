@@ -113,3 +113,25 @@ plot(grilla,post)
 ```
 
 Con aproximadamente 40 muestras podes usualmente tener intervalos de tamanio 0.1 que contienen al 50% de la probabilidad de theta.
+
+EJERCICIO 5
+```{r}
+datosActuales = c(0,0,0,0,0,1,1,1)
+grilla = c(0:10000)/10000
+priorUnif = rep(1, length(grilla))
+post = generarPosteriorDadoPriorYDatos(grilla, priorUnif, datosActuales)
+  plot(grilla, post, main = "Posterior de distribucion de linea dado datos")
+```
+la proba de que gane juan es la probabilidad de que juan gane 3 veces.
+esto es lo mismo que la proba(juan gane dado theta)*proba(theta)
+```{r}
+juanGane = c()
+for (j in c(1:length(grilla))){
+  juanGane[j] = grilla[j]*(1-(grilla[j]^(1/3)))^5 * 0.5*grilla[j]^(-2/3)#(grilla[j])^3 * post[j]
+}
+plot(grilla,juanGane)
+```
+```{r}
+sum(post*grilla^3)
+```
+
