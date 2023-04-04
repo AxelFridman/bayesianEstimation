@@ -118,3 +118,80 @@ points(grilla, postcasod22, col="yellow")
 legend("bottomright", legend = c("caso a", "caso b", "caso c", "caso d"),
        lwd = 3, col = c("red", "blue","green", "yellow"))
 ```
+
+EJERCICIO 4
+
+La distribucion geometrica se usa para modelar los intentos hasta tener un exito. Por ejemplo la cantidad de veces que debo tirar la moneda hasta una cara, o la cantidad de pelotas que un bateador debe recibir hasta hacer un home run, etc. Tambien sirve para poder estimar la cantidad de productos fallados en una linea de produccion.
+
+Cual es posterior con prior beta y lielihood geometrica? Es una beta, luego la beta es conjugada de la geometrica.
+Si prior es beta(a,b) y la likelihood es geom( theta)
+entonces posterior es beta(a+1, b+y-1) donde y es la cantidad de intentos hasta exitos. Mas detalles en carpeta
+
+EJERCICIO 5
+```{r}
+grilla = c(0:6000)/1000
+priorGoles = generarPriorDeGamma(1,0.25, grilla)
+
+```
+```{r}
+plot(grilla, priorGoles)
+```
+El modelo possion es razonable para y_i ya que representa la cantidad de un evento aleatorio.
+
+```{r}
+datoGol = c(3,7,4)
+postGol = damePosteriorGamma(priorGoles, grilla, datoGol)
+
+```
+```{r}
+plot(grilla, postGol, col = rgb(red = 0, green = 0.5, blue = 0.5, alpha = 0.1))
+```
+Ahora usando datos reales, graficar la evolución (partido a partido) del conocimiento sobre lambda
+. Los datos se pueden obtener
+
+```{r}
+library(fivethirtyeight)
+library(dplyr)
+
+data("wwc_2019_matches")
+cantGoles <- wwc_2019_matches %>% 
+  mutate(total = score1 + score2) %>% 
+  select(total)
+```
+```{r}
+grilla = c(0:7000)/1000
+priorGoles = generarPriorDeGamma(1,0.25, grilla)
+goles = as.vector(cantGoles["total"])
+df = data.frame(1:length(priorGoles))
+df = cbind(df, priorGoles)
+colnames(df) = c("a","1")
+df["a"] = NULL 
+for (j in c(1:length(goles$total))){
+  postGolJ = damePosteriorGamma(priorGoles, grilla, c(goles$total[j]))
+  colnames(df) = c(1:ncol(df))
+  df = cbind(df, postGolJ)
+  priorGoles = postGolJ
+}
+colnames(df) = c(1:ncol(df))
+
+```
+```{r}
+df
+```
+
+```{r}
+#s = (as.character(2))
+#h = as.vector(df[s])
+#h[[1]][2]
+s = (as.character(2))
+h = as.vector(df[s])
+plot(grilla,h[[1]], col = rgb(red = 0, green = 0, blue = 1, alpha = 1/ncol(df)), ylim=c(0, 0.003) )
+
+for (j in c(2:ncol(df))){
+  s = (as.character(j))
+  h = as.vector(df[s])
+  points(grilla,h[[1]], col = rgb(red = 1-j/ncol(df), green = 1-j/ncol(df), blue = j/ncol(df), alpha = j/ncol(df)) )
+}
+#plot(grilla, df$"1", col = rgb(red = 0, green = 0.5, blue = 0.5, alpha = 0.1))
+```
+
