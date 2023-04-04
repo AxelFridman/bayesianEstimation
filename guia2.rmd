@@ -1,0 +1,120 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+EJERCICIO 1
+```{r}
+casoa = c(3,7,9)
+casob = c(12,12,12,0)
+casoc = c(12)
+casod = c(16,10,17,11,11)
+```
+```{r}
+e = exp(1)
+likeliHoodDadoDatosPoisson = function(grilla, valores){
+  likelihood = c()
+  n = length(valores)
+  sumaY = sum(valores)
+  for (j in c(1:length(grilla))){
+    likelihood[j] = exp(-n*grilla[j])*grilla[j]^sumaY
+  }
+  return(likelihood/sum(likelihood))
+}
+```
+
+```{r}
+grilla = c(1:200000)/10000
+lcasoa = likeliHoodDadoDatosPoisson(grilla, casoa)
+lcasob = likeliHoodDadoDatosPoisson(grilla, casob)
+lcasoc = likeliHoodDadoDatosPoisson(grilla, casoc)
+lcasod = likeliHoodDadoDatosPoisson(grilla, casod)
+
+```
+```{r}
+plot(grilla, lcasoa, col="red")
+points(grilla, lcasob, col="blue")
+points(grilla, lcasoc, col="green")
+points(grilla, lcasod, col="yellow")
+
+legend("bottomright", legend = c("caso a", "caso b", "caso c", "caso d"),
+       lwd = 3, col = c("red", "blue","green", "yellow"))
+```
+EJERCICIO 2
+
+
+```{r}
+generarPriorDeGamma = function(k, theta, grilla){
+  gamak = gamma(k)
+  thetaAlak = theta^k
+  const = 1/(gamak*thetaAlak)
+  prior = c()
+  for (j in c(1:length(grilla))){
+    prior[j] = const * grilla[j]^(k-1) * exp(-grilla[j]/theta)
+  } 
+  return(prior)
+}
+```
+
+```{r}
+grilla = c(5000:90000)/1000
+prior242 = generarPriorDeGamma(24,2, grilla)
+```
+```{r}
+plot(grilla, prior242)
+```
+```{r}
+damePosteriorGamma = function(prior, grilla, datos ){
+  sumaDatos = sum(datos)
+  n = length(datos)
+  likelihood = likeliHoodDadoDatosPoisson(grilla, datos)
+  posterior = likelihood*prior
+  posterior = posterior / sum(posterior)
+  return(posterior)
+}
+```
+```{r}
+postcasoa = damePosteriorGamma(prior242, grilla, casoa)
+postcasob = damePosteriorGamma(prior242, grilla, casob)
+postcasoc = damePosteriorGamma(prior242, grilla, casoc)
+postcasod = damePosteriorGamma(prior242, grilla, casod)
+
+```
+
+```{r}
+plot(grilla, postcasoa, col="red", ylim = c(0,0.00025), xlim=c(0,50))
+points(grilla, postcasob, col="blue")
+points(grilla, postcasoc, col="green")
+points(grilla, postcasod, col="yellow")
+
+legend("bottomright", legend = c("caso a", "caso b", "caso c", "caso d"),
+       lwd = 3, col = c("red", "blue","green", "yellow"))
+```
+EJERCICIO 3
+
+
+
+```{r}
+grilla = c(0:30000)/1000
+prior22 = generarPriorDeGamma(2,2, grilla)
+```
+```{r}
+plot(grilla, prior22)
+```
+```{r}
+postcasoa22 = damePosteriorGamma(prior22, grilla, casoa)
+postcasob22 = damePosteriorGamma(prior22, grilla, casob)
+postcasoc22 = damePosteriorGamma(prior22, grilla, casoc)
+postcasod22 = damePosteriorGamma(prior22, grilla, casod)
+
+```
+
+```{r}
+plot(grilla, postcasoa22, col="red", ylim = c(0,0.00035), xlim=c(0,50))
+points(grilla, postcasob22, col="blue")
+points(grilla, postcasoc22, col="green")
+points(grilla, postcasod22, col="yellow")
+
+legend("bottomright", legend = c("caso a", "caso b", "caso c", "caso d"),
+       lwd = 3, col = c("red", "blue","green", "yellow"))
+```
