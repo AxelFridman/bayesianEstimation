@@ -185,12 +185,13 @@ df
 #h[[1]][2]
 s = (as.character(2))
 h = as.vector(df[s])
-plot(grilla,h[[1]], col = rgb(red = 0, green = 0, blue = 1, alpha = 1/ncol(df)), ylim=c(0, 0.003) )
+j=1
+plot(grilla,h[[1]], col = rgb(red = 1-(j/ncol(df))^2, green = 1-(j/ncol(df))^2, blue = (j/ncol(df))^2, alpha = 1-(j/ncol(df))^2), ylim=c(0, 0.003) )
 
 for (j in c(2:ncol(df))){
   s = (as.character(j))
   h = as.vector(df[s])
-  points(grilla,h[[1]], col = rgb(red = 1-j/ncol(df), green = 1-j/ncol(df), blue = j/ncol(df), alpha = j/ncol(df)) )
+  points(grilla,h[[1]], col = rgb(red = 1-(j/ncol(df))^2, green = 1-(j/ncol(df))^2, blue =(j/ncol(df))^2, alpha = (j/ncol(df))^2) )
 }
 #plot(grilla, df$"1", col = rgb(red = 0, green = 0.5, blue = 0.5, alpha = 0.1))
 ```
