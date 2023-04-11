@@ -1,0 +1,179 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+EJERCICIO 1
+```{r}
+datosSimuladosBeta = rbeta(10000, 3, 7)
+p = seq(0, 1, length=100)
+
+#create plot of Beta distribution with shape parameters 2 and 10
+hist(datosSimuladosBeta, breaks = 100, freq = F)
+
+lines(p, dbeta(p, 3, 7), type='l')
+
+```
+```{r}
+darMedidasResumen = function(datos){
+  res = c(mean(datos), #  Medida 1 de resumen
+  median(datos), # Medida 2 de resumen
+  sd(datos)) # Medida 3 de resumen
+  return(res)
+}
+```
+
+```{r}
+darMedidasResumen(datosSimuladosBeta)
+```
+EJERCICIO 2
+
+```{r}
+datosSimuladosGamma = rgamma(10000, 4, 2)
+hist(datosSimuladosGamma, breaks = 100, freq=F)
+minimGamma = 0.01#min(datosSimuladosGamma)
+maximGamma = 4#max(datosSimuladosGamma)
+
+xrange = seq(minimGamma, maximGamma, length=100)
+lines(xrange, dgamma(xrange, 4, 2), type='l')
+```
+```{r}
+darMedidasResumen(datosSimuladosGamma)
+```
+
+```{r}
+datosSimuladosNormal = rnorm(10000, 4, 1)
+minimNorm = min(datosSimuladosNormal)
+maximNorm = max(datosSimuladosNormal)
+xrangeNorm = seq(minimNorm, maximNorm, length=1000)
+
+#create plot of Beta distribution with shape parameters 2 and 10
+hist(datosSimuladosNormal, breaks = 100, freq = F)
+lines(xrangeNorm, dnorm(xrangeNorm, 4, 1), type='l')
+
+
+```
+
+EJERCICIO 3
+
+```{r}
+betaMail = rbeta(100000, 2, 5)
+```
+```{r}
+generarDatoAPartirDeParametroSimulado = function(thetaSimul){
+  return(rbinom(1, 1, thetaSimul))
+}
+```
+
+
+```{r}
+ySimulados = sapply(betaMail, generarDatoAPartirDeParametroSimulado )
+df = data.frame(betaMail, ySimulados )
+dfRespondio = df[df$ySimulados==1,]
+print(nrow(dfRespondio)/nrow(df))
+betasExito = dfRespondio$betaMail
+```
+```{r}
+summary(betasExito)
+```
+
+EJERCICIO 4
+
+```{r}
+datosLunes = rbeta(10000, 3, 7)
+datosSabado = rbeta(10000, 4, 8)
+deltaDiferenciaLunesSabado = datosLunes - datosSabado
+summary(deltaDiferenciaLunesSabado)
+```
+```{r}
+length(deltaDiferenciaLunesSabado[deltaDiferenciaLunesSabado<0])/10000
+```
+Aproximadamente el 56% esta por abajo de cero la diferencia
+
+EJERCICIO 5
+
+a) La prior es del 18% de que un arbol cualquiera este infectado. (Sin saber cual es)
+
+b) Si resulta que el arbol seleccionado es de la especie B, y quiero saber cual era la probabilidad de que eliga uno de la especie B es:
+
+Probabilidad de que eliga uno infectado y ese infectado sea B + probabilidad de que eliga uno no infectado y ese sea B.
+ =
+0.82 * 0.1 + 0.18 * 0.8 = 0.226 
+
+c) La probabilidad de que este infectado, sabiendo que es B es por regla 
+de bayes
+
+proba Infectado dado B = (proba B dado infectado * proba infectado)/ proba(b)
+
+= 0.8 * 0.18 / 0.226 = 0.6371
+
+d) a priori era de 18% mientras que ahora que se que es B es del 63%
+
+e) ahora hago simulaciones.
+
+```{r}
+tamanio = 30000
+arboles = c("A" , "B", "C")
+probaInfectado = c(0.15, 0.8, 0.05)
+probaSano = c(0.2, 0.1, 0.7)
+
+infectados = rbinom(tamanio,1, 0.18)
+tipoArbol = c()
+for (i in c(1:tamanio)){
+  if(infectados[i]==1){
+    tipoArbol[i] = sample(arboles, 1, prob = probaInfectado)
+  }
+  else{
+    tipoArbol[i] = sample(arboles, 1, prob = probaSano)
+  }
+}
+dfArboles = data.frame(infectados, tipoArbol)
+```
+
+```{r}
+dfArboles
+```
+```{r}
+nrow(dfArboles[dfArboles$tipoArbol=="B",])/ nrow(dfArboles)
+```
+Efectivamente da alrededor de 21%
+
+```{r}
+sum(dfArboles[dfArboles$tipoArbol=="B",]$infectados)/ nrow(dfArboles[dfArboles$tipoArbol=="B",])
+```
+Alrededor del 66% son los infectados entre los que son B
+
+EJERCICIO 6
+
+```{r}
+candidatoNuevoParametro = function(thetaViejo, desvio){
+  return(thetaViejo + rnorm(1, 0, desvio))
+}
+```
+```{r}
+probabilidadParametroDadoDatosNormal = function(datos){
+  return(0.1) #Cambiar
+}
+```
+
+```{r}
+metropolisHastingsFunction = function(tamanioMuestra, valorInicial, desvio, funcionCandidato, likelihoodFunction){
+  sampleos = c()
+  thetaAnt = valorInicial
+  for (i in c(1:tamanioMuestra)){
+    sampleos[i] = thetaAnt
+    thetaCand = funcionCandidato(thetaAnt, desvio)
+    r = likelihoodFunction(thetaCand)/likelihoodFunction(thetaAnt)
+    m = min(c(r, 1))
+    if(runif(1, 0, 1)<m){
+      thetaAnt = thetaCand
+    }
+  }
+  return(sampleos)
+}
+```
+
+```{r}
+metropolisHastingsFunction(100, 0, 0.1, candidatoNuevoParametro, probabilidadParametroDadoDatosNormal)
+```
+
