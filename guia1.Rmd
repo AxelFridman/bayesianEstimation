@@ -57,13 +57,14 @@ posteriorNoNormalizada = function(grilla, likelihood, prior){
   return(posteiorSinNorm)
 }
 
-posteriorNormalizada = function(posteriorSinNorm){
-  posteriorNormal = posteriorSinNorm/sum(posteriorSinNorm)
+posteriorNormalizada = function(posteriorSinNorm, grilla){
+  tamanioGrilla = grilla[2] - grilla[1]
+  posteriorNormal = posteriorSinNorm/(sum(posteriorSinNorm) * tamanioGrilla)
   return(posteriorNormal)
 }
 ```
 ```{r}
-post = posteriorNormalizada(posteriorNoNormalizada(grilla, like, prior))
+post = posteriorNormalizada(posteriorNoNormalizada(grilla, like, prior), grilla)
 plot(grilla, post)
 
 ```

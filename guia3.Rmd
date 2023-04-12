@@ -136,7 +136,7 @@ dfArboles
 ```{r}
 nrow(dfArboles[dfArboles$tipoArbol=="B",])/ nrow(dfArboles)
 ```
-Efectivamente da alrededor de 21%
+Efectivamente da alrededor de 22%
 
 ```{r}
 sum(dfArboles[dfArboles$tipoArbol=="B",]$infectados)/ nrow(dfArboles[dfArboles$tipoArbol=="B",])
@@ -151,8 +151,8 @@ candidatoNuevoParametro = function(thetaViejo, desvio){
 }
 ```
 ```{r}
-probabilidadParametroDadoDatosNormal = function(datos){
-  return(0.1) #Cambiar
+probabilidadParametroDadoDatosNormal = function(posicionActual){
+  return(dnorm(posicionActual, 0.4, 0.6)) #Cambiar
 }
 ```
 
@@ -174,6 +174,101 @@ metropolisHastingsFunction = function(tamanioMuestra, valorInicial, desvio, func
 ```
 
 ```{r}
-metropolisHastingsFunction(100, 0, 0.1, candidatoNuevoParametro, probabilidadParametroDadoDatosNormal)
 ```
 
+
+```{r}
+pasos = metropolisHastingsFunction(100000, 2, 0.05, candidatoNuevoParametro, probabilidadParametroDadoDatosNormal)
+```
+
+
+```{r}
+```
+
+```{r}
+hist(pasos, breaks = 100, freq = F)
+xrange2 = seq(min(pasos), max(pasos), length=1000)
+lines(xrange2, dnorm(xrange2, 0.4, 0.6), type='l')
+```
+
+EJERCICIO 7
+
+```{r}
+dfCrypto  = read.csv("crypto/btc.csv")
+dfCrypto["dif"] = dfCrypto$open - dfCrypto$close
+dfCrypto["subio"] = dfCrypto$dif>0
+subida = as.numeric(dfCrypto$subio)
+```
+```{r}
+likeliHoodDadoDatosBinomial = function(grilla, experimentos, exitos, prec){
+  likelihood = c()
+  m0 = mpfr(0, prec)
+  for (j in c(1:length(grilla))){
+    m1 = mpfr(grilla[j], prec)
+    m2 = mpfr(1-grilla[j], prec)
+    m3 = m1^exitos*m2^(experimentos - exitos)
+    m0 = m0 + m3
+    #likelihood[j] = m3
+  }
+  tamanioGrilla = grilla[2] - grilla[1]
+  for (j in c(1:length(grilla))){
+    m1 = mpfr(grilla[j], prec)
+    m2 = mpfr(1-grilla[j], prec)
+    m3 = m1^exitos*m2^(experimentos - exitos)
+    likelihood[j] = as.numeric(m3 / (m0 *tamanioGrilla))
+  }
+ 
+  #likelihood = (likelihood) / (m0 *tamanioGrilla)
+  return(likelihood)
+}
+```
+```{r}
+library(Rmpfr) # GNU Multiple Precision Arithmetic Library
+
+grilla = c(0:1000)/1000
+prior = dbeta(grilla, 3, 3)
+length(subida)
+sum(subida)
+like = likeliHoodDadoDatosBinomial(grilla, length(subida), sum(subida),300)
+plot(grilla,like, type = "l") 
+```
+
+```{r}
+plot(grilla, prior, type = "l")
+```
+```{r}
+posteriorNormalizada = function(grilla, likelihood, prior){
+  posteiorSinNorm = c()
+  tamanioGrilla = grilla[2] - grilla[1]
+
+  for (j in c(1:length(grilla))){
+    posteiorSinNorm[j] = likelihood[j]*prior[j]
+  }
+  return(likelihood/(sum(likelihood) * tamanioGrilla))
+}
+
+```
+```{r}
+like = likeliHoodDadoDatosBinomial(grilla, length(subida), sum(subida), 300)
+post = posteriorNormalizada(grilla, like, prior)
+plot(grilla, post, type = "l", xlim = c(0.4, 0.6))
+
+```
+
+```{r}
+probabilidadBeta = function(theta){
+return(dbeta(theta, 3+sum(subida), 3+length(subida)- sum(subida)))
+}
+```
+
+```{r}
+pasos = metropolisHastingsFunction(10000, 0.5, 0.05, candidatoNuevoParametro, probabilidadBeta)
+```
+
+```{r}
+hist(pasos, breaks = 120, freq = F)
+lines(grilla, dbeta(grilla, 3+sum(subida), 3+length(subida)- sum(subida)), type='l')
+
+```
+
+EJERCICIO 8
