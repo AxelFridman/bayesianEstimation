@@ -2,6 +2,14 @@
 title: "R Notebook"
 output: html_notebook
 ---
+```{r}
+require(coda)
+require(mvtnorm)
+require(devtools)
+require(loo)
+require(dagitty)
+require(rethinking)
+```
 
 EJERCICIO 1
 ```{r}
@@ -272,3 +280,56 @@ lines(grilla, dbeta(grilla, 3+sum(subida), 3+length(subida)- sum(subida)), type=
 ```
 
 EJERCICIO 8
+```{r}
+dfTurismo  = read.csv("turismo/tourism.csv")
+dfTurismoARG = dfTurismo[dfTurismo$code == "ARG",]
+dfTurismoARG
+```
+```{r}
+plot(dfTurismoARG$year, dfTurismoARG$value_., type = "l")
+```
+
+```{r}
+## Priors
+curve( dnorm( x , 4e9 , 1e9 ) , from=4e9 - 1.5*2e9 , to=4e9 + 1.5*2e9 )
+curve( dunif( x , 0.5e9 , 2e9) , from=0e9 , to=3e9 )
+```
+
+```{r}
+rangoMu = c(3e9, 6e9)
+rangoSigma = c(0.5e9, 2.5e9)
+## Prior predictive checks
+sample_mu    = rnorm( 1e4 , 4e9 , 1e9 ) 
+sample_sigma = runif( 1e4 , 0.5e9 , 2e9 )
+prior_h      = rnorm( 1e4 , sample_mu , sample_sigma )
+plot(density( prior_h ))
+```
+
+```{r}
+## Aproximación de grilla
+longitud = 400
+
+
+mu.list    = seq( from=rangoMu[1], to=rangoMu[2] , length.out=longitud )
+sigma.list = seq( from=rangoSigma[1] , to=rangoSigma[2] , length.out=longitud )
+post       = expand.grid( mu=mu.list , sigma=sigma.list )
+
+for (i in 1:nrow(post)){
+  post$LL[i] = sum( log(dnorm( dfTurismoARG$value_. , post$mu[i], post$sigma[i])) )
+}
+```
+
+```{r}
+post$prod = post$LL + dnorm( post$mu , 4e9 , 1e9, TRUE )  + dunif( post$sigma , 0.5e9 , 2e9, TRUE )
+#post$prod = post$prod - max(post$prod)
+post$prob = exp( post$prod )
+```
+
+
+```{r}
+require(rethinking)
+contour_xyz( post$mu , post$sigma , post$prob )
+image_xyz( post$mu , post$sigma , post$prob )
+```
+
+
