@@ -1,0 +1,51 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+```{r}
+prisioneros = c("S","A","B")
+cantMuestras = 100000
+prob = c(1/3, 1/3, 1/3)
+sobreviviente = sample(prisioneros, cantMuestras, prob = prob, replace = T)
+table(sobreviviente)
+```
+```{r}
+senialado = c()
+for(i in (1:cantMuestras)){
+  if(sobreviviente[i]=="S"){
+    if(rbinom(1,1, 0.5)==1){
+      senialado[i]="A"
+    }
+    else{
+      senialado[i]="B"
+    }
+  }
+  else{
+    if(sobreviviente[i]=="A"){
+      senialado[i]="B"
+    }
+    else{
+      senialado[i]="A"
+    }
+  }
+}
+```
+
+```{r}
+table(senialado)
+```
+```{r}
+dfPrisioneros = data.frame(sobreviviente, senialado)
+```
+
+Proba de sobrevivir dado que senialaron a A
+```{r}
+nrow(dfPrisioneros[dfPrisioneros$senialado=="A" & dfPrisioneros$sobreviviente=="S",])/nrow(dfPrisioneros[dfPrisioneros$senialado=="A",])
+```
+Proba de sobrevivir dado que senialaron a B
+```{r}
+nrow(dfPrisioneros[dfPrisioneros$senialado=="B" & dfPrisioneros$sobreviviente=="S",])/nrow(dfPrisioneros[dfPrisioneros$senialado=="B",])
+```
+
+
+
