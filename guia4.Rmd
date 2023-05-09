@@ -1,0 +1,113 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+```{r}
+library(bayesrules)
+library(tidyverse)
+library(rstan)
+library(rstanarm)
+library(bayesplot)
+library(tidybayes)
+library(janitor)
+library(broom.mixed)
+
+require(brms)
+```
+EJERCICIO 1
+```{r}
+cantidadObservaciones = 10000
+mus = rnorm(cantidadObservaciones,0,10)
+sigmas = rexp(cantidadObservaciones,1)
+
+y = rnorm(cantidadObservaciones, mus, sigmas)
+df = data.frame(y)
+```
+
+```{r}
+hist(y, breaks = 60)
+```
+EJERCICIO 2
+```{r}
+# modelo lineal - bayes
+fit.1 <- stan_glm(y ~ 1, data =df,
+                       family = gaussian,
+                       prior_intercept = normal(0, 10),
+                       #prior = normal(100, 40), 
+                       prior_aux = exponential(1),
+                       chains = 4, iter = 5000*2, seed = 84735)
+
+```
+```{r}
+
+mcmc_dens_overlay(fit.1)
+
+tidy(fit.1, effects = c("fixed", "aux"),
+     conf.int = TRUE, conf.level = 0.80)
+
+```
+
+EJERCICIO 3
+
+      family = gaussian, 
+      y ~ 1 + x,
+      prior = c(prior(normal(0, 10), class = Intercept),
+                prior(normal(0, 10), class = b),
+                prior(exp(1),  class = sigma))
+                
+MATEMATICAMENTE SERIA
+b0 ~ normal(0,10)
+b1 ~ normal(0,10)
+sigma ~ exp(1)
+y ~ normal(bo + b1*x, sigma)
+
+EJERCICIO 4
+Supongamos que se mide la altura de un grupo de chicos durante tres años. Al cabo de los tres años, se quiere usar un modelo lineal para predecir la altura usando el año como predictora. Escribir la definición matemática para este modelo de regresión, usando los priors que quiera (pero esté preparado para defender la elección de priors.)
+
+AlturaActual = AlturaAñoPasado + CrecimientoAnual
+
+CrecimientoAnual ~ 30*beta(2,5)
+AlturaPromedio ~ 
+y = AlturaPromedio + CrecimientoAnual*años
+
+```{r}
+xs = seq(0,1,0.001)
+ys = dbeta(xs, 2,6)
+crecimientos = sample(30*xs, cantidadObservaciones, prob = ys, replace = T)
+plot(30*xs,ys, type = 'l')
+```
+```{r}
+hist(crecimientos, breaks = 50)
+```
+
+```{r}
+
+xs = seq(0,250,0.001)
+ys = dnorm(xs, 130, 30 )
+alturasPromedio = rnorm(cantidadObservaciones,130,30)
+plot(xs,ys, type = 'l')
+```
+
+
+```{r}
+hist(alturasPromedio + crecimientos*0, breaks = 60)
+```
+```{r}
+hist(alturasPromedio + crecimientos*1, breaks = 60)
+```
+```{r}
+hist(alturasPromedio + crecimientos*2, breaks = 60)
+```
+
+```{r}
+hist(alturasPromedio + crecimientos*3, breaks = 60)
+```
+
+EJERCICIO 5
+Usando el dataset de alturas Howell1 que viene con el paquete rethinking, dar una predicción para la altura de individuos que pesan 46.95, 43.72, 64.78, 32.59 y 54.63 Kg. Dar también un intervalo de credibilidad del 95% para estas predicciones.
+
+```{r}
+require(rethinking)
+rethinking.howell1
+```
+
