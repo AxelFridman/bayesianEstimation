@@ -3,6 +3,15 @@ title: "R Notebook"
 output: html_notebook
 ---
 ```{r}
+install.packages("Rmpfr")
+```
+remove.packages(c("StanHeaders", "rstan"))
+
+install.packages("rstan", repos = c("https://mc-stan.org/r-packages/", getOption("repos")))
+
+
+
+```{r}
 library(bayesrules)
 library(tidyverse)
 library(rstan)
@@ -34,7 +43,7 @@ fit.1 <- stan_glm(y ~ 1, data =df,
                        family = gaussian,
                        prior_intercept = normal(0, 10),
                        #prior = normal(100, 40), 
-                       prior_aux = exponential(1),
+                       #prior_aux = exponential(link='log'),
                        chains = 4, iter = 5000*2, seed = 84735)
 
 ```
@@ -107,7 +116,37 @@ EJERCICIO 5
 Usando el dataset de alturas Howell1 que viene con el paquete rethinking, dar una predicción para la altura de individuos que pesan 46.95, 43.72, 64.78, 32.59 y 54.63 Kg. Dar también un intervalo de credibilidad del 95% para estas predicciones.
 
 ```{r}
+install.packages('rethinking')
 require(rethinking)
-rethinking.howell1
+dfHow = read.csv("howell1.csv", sep = ";")
+```
+```{r}
+dfHow
+```
+
+```{r}
+# modelo lineal - bayes
+priors =  c( 
+            prior(normal(0, 10), class = "b", coef ="weight"),
+             prior(normal(0, 10), class = "b", coef ="age"),
+             prior(normal(0, 10), class = "b", coef ="male"),
+             prior(normal(0, 10), class = "Intercept"),
+            prior(exponential(1), class = "sigma")
+             )
+
+fit.2 <- brm(height ~ weight + age + male, data =dfHow,
+                       family = gaussian,
+
+                       prior = priors ,
+                       chains = 4, iter = 5000*2, seed = 84735)
+
+```
+
+
+
+```{r}
+plot(fit.2)
+mcmc_dens_overlay(fit.2)
+
 ```
 

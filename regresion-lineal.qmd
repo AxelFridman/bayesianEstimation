@@ -1,0 +1,300 @@
+---
+title: "Regresión lineal con `brms`"
+format: html
+toc: false
+editor: source
+---
+
+# Cargamos paquetes, cargamos los datos y definimos parámetros para plots
+
+Básicamente vamos a usar `brms` y `tidyverse`. Esto está inspirado en el capítulo 9 de [Bayes Rules](https://www.bayesrulesbook.com/chapter-9.html) y en la adaptación a brms de [Andrew Heiss](https://bayesf22-notebook.classes.andrewheiss.com/bayes-rules/) 
+
+```{r warning=FALSE, message=FALSE, include=FALSE}
+require(bayesrules)
+require(tidyverse)
+require(brms)
+require(cmdstanr)
+require(rstanarm)
+require(broom.mixed)
+require(tidybayes)
+require(ggdist)
+require(patchwork)
+require(ggtext)
+
+# Plot stuff
+clrs <- MetBrewer::met.brewer("Lakota", 6)
+theme_set(theme_bw())
+
+# Seed stuff
+set.seed(1234)
+BAYES_SEED <- 1234
+
+data(bikes, package = "bayesrules")
+
+bikes <- bikes |> 
+  mutate(temp_feel_centered = scale(temp_feel, scale = FALSE),
+         temp_feel_c = as.numeric(temp_feel_centered))
+
+temp_details <- attributes(bikes$temp_feel_centered) %>%
+  set_names(janitor::make_clean_names(names(.)))
+```
+
+# Ejemplo
+
+Queremos entender cómo varía el uso de bicicletas con la temperatura. Usamos un dataset de *Capital BikeShare*, un sistema de alquiler de bicicletas de Washington D.C. (USA) similar al de EcoBici en Buenos Aires. Este dataset está en el paquete `bayesrules`. Se propone hacer un modelo de regresión lineal donde la variable respuesta es el número de viajes diarios en bicicleta y la predictora es la temperatura media del dia. Para que sea más fácil de interpretar la ordenada al origen, usamos como predictora la temperatura centrada en el valor medio. Así la ordenada al origen reflejará la cantidad de viajes en un día con temperatura promedio.
+
+El modelo está descripto en el capítulo 9 de [(Bayes Rules)](https://www.bayesrulesbook.com/chapter-9.html). Matemáticamente:
+
+$$
+\begin{aligned}
+Y_i \mid \beta_0, \beta_1, \sigma &\stackrel{\text{ind}}{\sim} \mathcal{N}(\mu_i, \sigma) 
+\\
+\mu_i &= \beta_{0} + \beta_1 X_i \\
+\\
+\beta_{0} &\sim \mathcal{N}(5000, 1000) \\
+\beta_{1} &\sim \mathcal{N}(100, 40) \\
+\sigma &\sim \operatorname{Exponential}(1 / 1250)
+\end{aligned}
+$$
+
+La distribución posterior es:
+
+$$
+P(\beta_0, \beta_1, \sigma \mid y_i) \sim \prod_i \mathcal{N}(\beta_0 ;~5000, 1000) ~ \times ~ 
+                                                    \mathcal{N}(\beta_1 ;~100, 40) ~ \times ~
+                                                    \exp\Big({-\frac{\sigma}{1250}}\Big) ~ \times ~ 
+                                                    \mathcal{N}(y_i ;\beta_0 + \beta_1 x_i, \sigma) 
+$$
+
+Es un modelo simple pero aún así ya es difícil de tratar matemáticamente. En lugar de trabajar con la posterior, el paquete `brms` (como otros), consigue muestras de la posterior haciendo un random walk en el espacio de parámetros. Esto hace que las muestras no sean independientes. Por eso vamos a tener que evaluar la efectividad del resultado (más adelante)
+
+# 1- ¿Son razonables los priors?
+
+Siempre es buena idea graficar los priors, que en este caso son independientes:
+
+```{r fig.width=12, fig.height=3}
+p1 <- ggplot() +
+  geom_function(fun = ~dnorm(., 5000, 1000), linewidth = 1, color = clrs[1]) +
+  xlim(c(1000, 9000)) +
+  labs(x = "**β<sub>0</sub>**<br>Promedio de viajes diarios") +
+  theme(axis.title.x = element_markdown())
+
+p2 <- ggplot() +
+  geom_function(fun = ~dnorm(., 100, 40), linewidth = 1, color = clrs[3]) +
+  xlim(c(-50, 250)) +
+  labs(x = "**β<sub>1</sub>**<br>Incremento del número de viajes con la temperatura") +
+  theme(axis.title.x = element_markdown())
+
+p3 <- ggplot() +
+  geom_function(fun = ~dexp(., 1 / 1250), linewidth = 1, color = clrs[4]) +
+  xlim(c(0, 7000)) +
+  labs(x = "**σ**<br>Variabilidad del número de viajes diarios") +
+  theme(axis.title.x = element_markdown())
+
+p1 | p2 | p3
+```
+
+Ahora veamos qué dicen estos priors para la relación entre cantidad de viajes diarios y temperatura. Es decir, buscamos las rectas $\mu = \beta_{0} + \beta_1 X$ que implican los priors. Para eso hay que tomar un valor de $\beta_{0}$ y de $\beta_{1}$ y con eso calcular $\mu(X)$. Como sabemos las distribiciones a priori, lo podemos hacer "a mano":
+
+```{r}
+n = 200
+
+beta0 = rnorm(100, 5000, 1000)
+beta1 = rnorm(100, 100, 40)
+
+x     = seq(45,90,1) - temp_details$scaled_center
+mu    = beta0[1] + beta1[1] * x
+plot(x + temp_details$scaled_center, mu, type = "l", ylim = c(0,10000), col = "gray", xlab = "Temperatura", ylab = "Número de viajes")
+for (i in 2:n){
+  mu = beta0[i] + beta1[i] * x
+  lines(x + temp_details$scaled_center, mu, col = "gray")
+}
+```
+
+Pero lo vamos a hacer también con `brms` usando la función `brm` con el argumento `sample_prior = "only"` para que no use los datos, sólo tome muestras usando los priors. En este caso quizás no se justifica pero esta forma de hacerlo es más general (sirve para cualquier modelo por complejo que sea) y es menos susceptible a errores que la anterior.
+
+```{r eval=F}
+priors <- c(prior(normal(5000, 1000), class = Intercept),
+            prior(normal(100, 40), class = b, coef = "temp_feel_c"),
+            prior(exponential(0.0008), class = sigma))
+
+bike_prior_only <- brm(
+  bf(rides ~ temp_feel_c),
+  data = bikes,
+  family = gaussian(),
+  prior = priors,
+  sample_prior = "only",
+  backend = "cmdstanr", cores = 4, seed = BAYES_SEED, refresh = 0,
+  file = "cache/bike_prior_only"
+)
+```
+
+```{r}
+draws_prior <- tibble(temp_feel_c = seq(45,90,1) - temp_details$scaled_center) |> 
+  add_linpred_draws(bike_prior_only, ndraws = 200) |> 
+  mutate(unscaled = temp_feel_c + temp_details$scaled_center)
+
+draws_prior |> 
+  ggplot(aes(x = unscaled, y = .linpred)) +
+  geom_line(aes(group = .draw), alpha = 0.2) +
+  labs(x = "Temperatura", y = "Número de viajes")
+
+```
+
+# 2- Simulaciones de la distribución posterior
+
+Ahora si podemos obtener la posterior
+
+```{r}
+priors <- c(prior(normal(5000, 1000), class = Intercept),
+            prior(normal(100, 40), class = b, coef = "temp_feel_c"),
+            prior(exponential(0.0008), class = sigma))
+
+bike_brms <- brm(
+  bf(rides ~ temp_feel_c),
+  data = bikes,
+  family = gaussian(),
+  prior = priors,
+  chains = 4, iter = 5000*2, seed = BAYES_SEED, 
+  backend = "cmdstanr", refresh = 0,
+  file = "cache/bike-brms"
+)
+```
+
+## Evaluación del ajuste
+
+Lo primero que tenemos que ver es si las cadenas del MCMC convergieron. Para eso podemos graficar la secuencia de muestras de las 4 cadenas que simulamos. Lo que queremos ver es que las 4 cadenas se superpongan. Si estuvieran separadas esto indicaría que cada una nos da una estimación diferente.
+
+```{r}
+bike_brms |> 
+  gather_draws(b_Intercept, b_temp_feel_c, sigma) |> 
+  ggplot(aes(x = .iteration, y = .value, color = as.factor(.chain))) +
+  geom_line(size = 0.05) +
+  labs(color = "Chain") +
+  facet_wrap(vars(.variable), scales = "free_y") +
+  theme(legend.position = "bottom")
+```
+
+No hay un método para decir que un algoritmo de MCMC convirgió. Sin embargo, una forma de verificar la convergencia es ver que las cadenas son similares (no importa donde se inicia en el espacio de parámetros). Una forma de cuantificar esto es mirar el valor de `rhat`, $\hat{R}$, que compara la variabilidad dentro de cada cadena con la variabilidad entre cadenas. Este número se calcula para cada parámetro y, aunque no hay reglas fijas, se podría asumir que las cadenas convirgieron si $\hat{R} \lesssim 1.1$.
+
+```{r}
+rhat(bike_brms)
+```
+
+Otro parámetro es la cantidad de muestras de warm-up, típicamente la mitad de la cantidad total (a veces menos). Por último, hay que ver si las muestras son independientes. No lo son pero a partir de la autocorrelación de las secuencias se puede estimar lo que se conoce como el número efectivo de muestras.
+
+```{r}
+neff_ratio(bike_brms)
+```
+
+## Posterior
+
+```{r}
+bike_brms |> 
+  gather_draws(b_Intercept, b_temp_feel_c, sigma) |> 
+  ggplot(aes(x = .value, color = factor(.chain))) +
+  geom_density(linewidth = 1) +
+  labs(color = "Chain",
+       x = "parámetros") +
+  facet_wrap(vars(.variable), scales = "free") +
+  theme(legend.position = "bottom")
+```
+
+```{r}
+bike_brms |> 
+  gather_draws(b_Intercept, b_temp_feel_c, sigma) |> 
+  ggplot(aes(x = .value, fill = .variable)) +
+  stat_halfeye(normalize = "xy") +
+  scale_fill_manual(values = c(clrs[1], clrs[3], clrs[4]), guide = "none") +
+  facet_wrap(vars(.variable), scales = "free_x") +
+  labs(x = "Parameter posterior") +
+  theme(legend.position = "bottom")
+```
+
+```{r}
+tidy(bike_brms, conf.int = TRUE, conf.level = 0.8) |> 
+  select(-c(effect, component, group))
+```
+
+```{r}
+bikes |> 
+  add_linpred_draws(bike_brms, ndraws = 100) |> 
+  ggplot(aes(x = temp_feel, y = rides)) +
+  geom_point(data = bikes, size = 0.5) +
+  geom_line(aes(y = .linpred, group = .draw), alpha = 0.2, size = 0.5, color = clrs[6]) +
+  labs(x = "Temperature", y = "Rides")
+```
+
+## Pregunta: β~1~ \> 0? 
+
+```{r}
+bike_brms |> 
+  spread_draws(b_temp_feel_c) |> 
+  count(b_temp_feel_c > 0) |> 
+  mutate(prob = n / sum(n))
+```
+
+
+# Predicciones
+
+# Secuencial
+
+```{r}
+priors <- c(prior(normal(5000, 1000), class = Intercept),
+            prior(normal(100, 40), class = b, coef = "temp_feel_c"),
+            prior(exponential(0.0008), class = sigma))
+
+bike_phases <- tribble(
+  ~phase, ~data,
+  1,      slice(bikes, 1:30),
+  2,      slice(bikes, 1:60),
+  3,      bikes
+) |> 
+  mutate(model = map(data, ~{
+    brm(
+      bf(rides ~ temp_feel_c),
+      data = .,
+      family = gaussian(),
+      prior = priors,
+      chains = 4, iter = 5000*2, seed = BAYES_SEED, 
+      backend = "cmdstanr", refresh = 0
+    )})
+  )
+```
+
+```{r}
+bike_phase_draws <- bike_phases |> 
+  mutate(draws = map(model, ~spread_draws(., b_temp_feel_c)))
+
+phases_coefs <- bike_phase_draws |> 
+  mutate(coef_plot = map2(draws, phase, ~{
+    ggplot(.x, aes(x = b_temp_feel_c)) +
+      stat_halfeye(fill = clrs[3]) +
+      coord_cartesian(xlim = c(-10, 100)) +
+      labs(title = paste("Phase", .y))
+  }))
+
+wrap_plots(phases_coefs$coef_plot)
+```
+
+```{r}
+bike_phase_preds <- bike_phases |> 
+  mutate(preds = map2(data, model, ~{
+    .x |> 
+      add_linpred_draws(.y, ndraws = 50) |> 
+      ungroup()
+  }))
+
+phases_preds <- bike_phase_preds |> 
+  mutate(pred_plot = pmap(list(data, preds, phase), ~{
+    ggplot(..2, aes(x = temp_feel, y = rides)) +
+      geom_point(data = ..1, size = 0.5) +
+      geom_line(aes(y = .linpred, group = .draw), 
+                alpha = 0.2, size = 0.5, color = clrs[6]) +
+      labs(title = paste("Phase", ..3)) +
+      coord_cartesian(xlim = c(40, 90), ylim = c(0, 7000))
+  }))
+
+wrap_plots(phases_preds$pred_plot)
+```
+
