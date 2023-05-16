@@ -123,9 +123,9 @@ bike_prior_only <- brm(
   data = bikes,
   family = gaussian(),
   prior = priors,
-  sample_prior = "only",
-  backend = "cmdstanr", cores = 4, seed = BAYES_SEED, refresh = 0,
-  file = "cache/bike_prior_only"
+  sample_prior = "only"
+  #, backend = "cmdstanr", cores = 4, seed = BAYES_SEED, refresh = 0
+ # , file = "cache/bike_prior_only"
 )
 ```
 
@@ -155,9 +155,9 @@ bike_brms <- brm(
   data = bikes,
   family = gaussian(),
   prior = priors,
-  chains = 4, iter = 5000*2, seed = BAYES_SEED, 
-  backend = "cmdstanr", refresh = 0,
-  file = "cache/bike-brms"
+  chains = 4, iter = 5000*2, seed = BAYES_SEED
+  #, backend = "cmdstanr", refresh = 0,
+  #file = "cache/bike-brms"
 )
 ```
 
@@ -256,8 +256,8 @@ bike_phases <- tribble(
       data = .,
       family = gaussian(),
       prior = priors,
-      chains = 4, iter = 5000*2, seed = BAYES_SEED, 
-      backend = "cmdstanr", refresh = 0
+      chains = 4, iter = 5000*2, seed = BAYES_SEED
+      #backend = "cmdstanr", refresh = 0
     )})
   )
 ```

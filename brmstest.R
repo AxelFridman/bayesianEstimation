@@ -6,7 +6,7 @@ library(bayesplot)
 library(tidybayes)
 library(janitor)
 library(broom.mixed)
-
+library(palmerpenguins)
 require(brms)
 
 bike_model <- stan_glm(rides ~ temp_feel, data = bikes,
