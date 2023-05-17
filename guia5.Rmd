@@ -16,6 +16,8 @@ library(broom.mixed)
 library(palmerpenguins)
 require(brms)
 library(ggplot2)
+library(mltools)
+library(data.table)
 ```
 ```{r}
 (hist(penguins$flipper_length_mm, breaks = 40))
@@ -141,5 +143,63 @@ penguins %>%
   stat_lineribbon(aes(y = .prediction), .width = c(.999,.99, .95, .8, .5, 0.2), color = "#08519C") +
   geom_point(data = penguins, size = 1.5) +scale_fill_brewer() +
   theme_classic()
+```
+
+2 Proponer un modelo de regresión logística para clasificar a un pinguino como de la especie Gentoo usando como variable predictora al largo del pico (bill_length).
+
+Probabilidad sea especie Gentoo = 1/(1+e^(alpha*bill_length + beta))
+Logit(especieGentoo) ~ normal(alpha*bill_length + beta, sigma)
+alpha ~ normal(0, 5)
+beta ~ normal(0,100)
+sigma ~ exponential(1/1000)
+```{r}
+newdata <- one_hot(as.data.table(penguins))
+dfpen = newdata[,c("species_Gentoo","bill_length_mm")]
+dfpen
+```
+
+```{r}
+logisticFitPenguin <- brm(formula = species_Gentoo ~ bill_length_mm,  
+           data    = dfpen, 
+           family  = bernoulli(link = "logit"),
+           prior   = c(prior(normal(0, 100), class = "Intercept"),
+                       prior(normal(0, 5), class = "b", coef = "bill_length_mm")),
+           iter = 1000, warmup = 500, chains = 2,)
+
+```
+```{r}
+plot(logisticFitPenguin)
+rhat(logisticFitPenguin)
+pp_check(logisticFitPenguin, type = "intervals", x = "bill_length_mm")
+```
+
+Correr el modelo y extraer la probabilidad de que un pinguino sea Gentoo si su pico tiene largo 40 mm. (Ayuda: se puede usar la función posterior_linpred(transform = TRUE)).
+
+
+```{r}
+dfPosteriorPenguinLogistic = posterior_samples(logisticFitPenguin)
+dfPosteriorPenguinLogistic$probSinLog = dfPosteriorPenguinLogistic$b_Intercept + 40*dfPosteriorPenguinLogistic$b_bill_length_mm
+
+#(posterior_linpred(logisticFitPenguin,transform = TRUE) )
+
+dfPosteriorPenguinLogistic$prob = 1/(1+exp(dfPosteriorPenguinLogistic$probSinLog))
+hist(dfPosteriorPenguinLogistic$prob, breaks=50)
+```
+
+Nos da alrededor del 84% de probabilidad la distribucion. 
+Hagamos un sanity check y veamos como se distribuyen bill length
+
+```{r}
+# Basic density plot in ggplot2
+ggplot(dfpen, aes(x = bill_length_mm, colour = factor(species_Gentoo))) +
+  geom_density()
+#hist(dfpen$bill_length_mm, color=dfpen$species_Gentoo)
+```
+
+```{r}
+table(dfpen$species_Gentoo)
+```
+```{r}
+
 ```
 
