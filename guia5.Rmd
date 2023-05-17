@@ -102,14 +102,6 @@ penguins |>
   labs(x = "flipper_length_mm", y = "body_mass_g")
 ```
 
-## Pregunta:? 
-
-```{r}
-penguinFit |> 
-  spread_draws(flipper_length_mm) |> 
-  count(flipper_length_mm > 0) |> 
-  mutate(prob = n / sum(n))
-```
 
 Encontrar la distribución posterior para el peso esperado de un pinguino que tiene una aleta de largo 200 mm. Graficarla y dar medidas resumen.
 ```{r}
@@ -154,7 +146,7 @@ beta ~ normal(0,100)
 sigma ~ exponential(1/1000)
 ```{r}
 newdata <- one_hot(as.data.table(penguins))
-dfpen = newdata[,c("species_Gentoo","bill_length_mm")]
+dfpen = na.omit(newdata[,c("species_Gentoo","bill_length_mm")])
 dfpen
 ```
 
@@ -178,7 +170,7 @@ Correr el modelo y extraer la probabilidad de que un pinguino sea Gentoo si su p
 
 ```{r}
 dfPosteriorPenguinLogistic = posterior_samples(logisticFitPenguin)
-dfPosteriorPenguinLogistic$probSinLog = dfPosteriorPenguinLogistic$b_Intercept + 40*dfPosteriorPenguinLogistic$b_bill_length_mm
+dfPosteriorPenguinLogistic$probSinLog =  (dfPosteriorPenguinLogistic$b_Intercept + 40*dfPosteriorPenguinLogistic$b_bill_length_mm)
 
 #(posterior_linpred(logisticFitPenguin,transform = TRUE) )
 
@@ -200,6 +192,23 @@ ggplot(dfpen, aes(x = bill_length_mm, colour = factor(species_Gentoo))) +
 table(dfpen$species_Gentoo)
 ```
 ```{r}
+dfpen %>%
+  data_grid(xc = seq_range(dfpen$bill_length_mm, n = 101), n = 100) %>%
+  add_predicted_draws(logisticFitPenguin) %>%
+  ggplot(aes(x = bill_length_mm, y =species_Gentoo)) +
+  stat_lineribbon(aes(y = .prediction), .width = c(.99, .95, .8, .5), color = "#08519C") +
+  geom_point(data = dfpen, size = 2) +
+  scale_fill_brewer() +
+  theme_classic()
 
+xc.seq = seq(min(dfpen$bill_length_mm),max(dfpen$bill_length_mm),by=1)
+xc.seq = seq(45,55, by=1)
+dfpen %>%
+  data_grid(bill_length_mm = xc.seq) %>%
+  add_predicted_draws(logisticFitPenguin) %>%
+  ggplot(aes(x = bill_length_mm, y = species_Gentoo)) +
+  stat_lineribbon(aes(y = .prediction), .width = c(.99, .95), color = "#08519C") +
+  geom_point(data = dfpen, size = 1.5) +scale_fill_brewer() +
+  theme_classic()
 ```
 
