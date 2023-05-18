@@ -154,7 +154,7 @@ dfpen
 logisticFitPenguin <- brm(formula = species_Gentoo ~ bill_length_mm,  
            data    = dfpen, 
            family  = bernoulli(link = "logit"),
-           prior   = c(prior(normal(0, 100), class = "Intercept"),
+           prior   = c(prior(normal(0, 5), class = "Intercept"),
                        prior(normal(0, 5), class = "b", coef = "bill_length_mm")),
            iter = 1000, warmup = 500, chains = 2,)
 
@@ -170,7 +170,7 @@ Correr el modelo y extraer la probabilidad de que un pinguino sea Gentoo si su p
 
 ```{r}
 dfPosteriorPenguinLogistic = posterior_samples(logisticFitPenguin)
-dfPosteriorPenguinLogistic$probSinLog =  (dfPosteriorPenguinLogistic$b_Intercept + 40*dfPosteriorPenguinLogistic$b_bill_length_mm)
+dfPosteriorPenguinLogistic$probSinLog =  -(dfPosteriorPenguinLogistic$b_Intercept + 40*dfPosteriorPenguinLogistic$b_bill_length_mm)
 
 #(posterior_linpred(logisticFitPenguin,transform = TRUE) )
 
@@ -192,14 +192,7 @@ ggplot(dfpen, aes(x = bill_length_mm, colour = factor(species_Gentoo))) +
 table(dfpen$species_Gentoo)
 ```
 ```{r}
-dfpen %>%
-  data_grid(xc = seq_range(dfpen$bill_length_mm, n = 101), n = 100) %>%
-  add_predicted_draws(logisticFitPenguin) %>%
-  ggplot(aes(x = bill_length_mm, y =species_Gentoo)) +
-  stat_lineribbon(aes(y = .prediction), .width = c(.99, .95, .8, .5), color = "#08519C") +
-  geom_point(data = dfpen, size = 2) +
-  scale_fill_brewer() +
-  theme_classic()
+
 
 xc.seq = seq(min(dfpen$bill_length_mm),max(dfpen$bill_length_mm),by=1)
 xc.seq = seq(45,55, by=1)
@@ -209,6 +202,47 @@ dfpen %>%
   ggplot(aes(x = bill_length_mm, y = species_Gentoo)) +
   stat_lineribbon(aes(y = .prediction), .width = c(.99, .95), color = "#08519C") +
   geom_point(data = dfpen, size = 1.5) +scale_fill_brewer() +
+  theme_classic()
+```
+3 Se quiere entender la relación entre el cociente de ancho y largo del pico (r, variable respuesta) y el largo de la aleta (variable explicativa). Proponga un modelo (tenga en cuenta el rango posible de valores de r
+ para elegir la distribución de la variable respuesta). 
+ Ajustar el modelo y graficar los valores de r
+ predichos por el modelo para un rango de valores para el largo de la aleta entre 170 mm y 240 mm.
+```{r}
+penguins3 = na.omit(penguins[,c("bill_depth_mm","bill_length_mm","flipper_length_mm")])
+penguins3$r = (penguins3$bill_depth_mm / penguins3$bill_length_mm)
+min(penguins3$r)
+```
+ratio ~ exponential(alfa + beta * flipperlength)
+alfa ~ normal(0,10)
+beta ~ normal(0,1)
+
+```{r}
+priorsRatio =  c( 
+            prior(normal(0, 1), class = "b", coef ="r"),
+             prior(normal(0, 10), class = "Intercept")
+             )
+
+penguinFitExp <- brm(flipper_length_mm ~ r, data =penguins3,
+                       family = exponential(),
+                       prior = priorsRatio ,
+                       chains = 4, iter = 5000*2, seed = 84735)
+
+```
+```{r}
+plot(penguinFitExp)
+```
+
+```{r}
+xc.seq = seq(170,240,by=1)
+
+penguins3 %>%
+  data_grid(flipper_length_mm = xc.seq, r=seq(0,1,by=0.1)) %>%
+  add_predicted_draws(penguinFitExp) %>%
+  ggplot(aes(x = flipper_length_mm, y = r)) +
+  #+stat_lineribbon(aes(y = .prediction), .width = c(.95,0.5), color = "#08519C") 
+  geom_line(aes(y = .prediction), color = "#08519C") +
+  geom_point(data = penguins3, size = 1.5) +scale_fill_brewer() +
   theme_classic()
 ```
 
