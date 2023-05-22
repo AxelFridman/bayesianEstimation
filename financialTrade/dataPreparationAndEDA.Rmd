@@ -1,0 +1,97 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+```{r}
+library(ggplot2)
+library(bayesrules)
+library(tidyverse)
+library(rstan)
+library(rstanarm)
+library(bayesplot)
+library(tidybayes)
+library(janitor)
+library(broom.mixed)
+library(palmerpenguins)
+require(brms)
+library(ggplot2)
+library(mltools)
+library(data.table)
+```
+
+```{r}
+dfSecurities = read.csv("securities.csv")
+dfFundamentals = read.csv("fundamentals.csv")
+dfPrices = read.csv("prices.csv")
+
+dfPricesAdjusted = read.csv("prices-split-adjusted.csv")
+dfPricesAdjusted$date = as.Date(dfPricesAdjusted$date)
+dfFundamentals$symbol = dfFundamentals$Ticker.Symbol
+dfSecurities$symbol = dfSecurities$Ticker.symbol
+```
+
+```{r}
+head(dfPricesAdjusted)
+```
+
+Company Apple prices
+
+```{r}
+adjustedPricesApple = dfPricesAdjusted[dfPricesAdjusted$symbol=="AAPL",]
+
+ApplePrices = dfPrices[dfPrices$symbol=="AAPL",]
+```
+```{r}
+plot(seq(1, length(adjustedPricesApple$date), by=1), adjustedPricesApple$open, type = "l", main="Apple stock prices adjusted by split ", xlab="Time", ylab="Price")
+```
+```{r}
+plot(seq(1, length(ApplePrices$date), by=1), ApplePrices$open, type = "l",  main="Apple stock prices without adjustment ", xlab="Time", ylab="Price")
+```
+It is clear that we should only analize only the adjusted prices as the regular prices have the split anomalies that will interfere with the model predictions, even if they are very infrequent.
+
+```{r}
+dfAvgPriceDaysOperating = dfPricesAdjusted %>%
+                           group_by(symbol) %>%
+                           summarise(averageTrade = mean(open), 
+                           daysOperating = n_distinct(date)) %>%
+                           arrange(averageTrade, daysOperating)
+
+dfAvgPriceDaysOperating
+```
+We can see that most companies from the 500 on the dataset have traded for 1762 days while around 30 companies have traded for less. In order to be consistent with the amount of information from each company we will discard the companies that don't have 1762 days. We assume that this 30 companies prices are not a strong indicator of the future prices of the other 470 companies. 
+
+```{r}
+dfCompaniesToTrack = dfAvgPriceDaysOperating[dfAvgPriceDaysOperating$daysOperating==1762,]
+dfCompaniesToTrack <- dfCompaniesToTrack[c("symbol")]
+
+dfPricesAdjustedCompanysToTrack = inner_join(dfPricesAdjusted, dfCompaniesToTrack, by = "symbol")
+dfFundamentalsCompanysToTrack = inner_join(dfFundamentals, dfCompaniesToTrack, by = "symbol")
+dfSecuritiesCompanysToTrack = inner_join(dfSecurities, dfCompaniesToTrack, by = "symbol")
+
+```
+
+
+```{r}
+p = ggplot(data=dfPricesAdjustedCompanysToTrack, aes(x=date, y=open, group=symbol)) +
+  geom_line(aes(color=symbol))
+  #geom_point(aes(color=symbol))
+p + theme(legend.position="none") + scale_y_continuous(trans='log2')
+```
+We plotted the prices from all the companies in time with logharitmic scale on the price axis.
+
+```{r}
+sum(is.na(dfPricesAdjustedCompanysToTrack))
+sum(is.na(dfSecuritiesCompanysToTrack))
+sum(is.na(dfFundamentalsCompanysToTrack))
+```
+As we can see there are only nil values on the fundamentals let's explore those to see what we are missing.
+
+```{r}
+nan_counts <- colSums(is.na(dfFundamentalsCompanysToTrack))
+nan_counts <- nan_counts[nan_counts!=0]
+print(nan_counts)
+```
+```{r}
+view(dfFundamentalsCompanysToTrack)
+```
+
