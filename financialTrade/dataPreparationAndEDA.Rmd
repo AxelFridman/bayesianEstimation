@@ -131,6 +131,9 @@ calculatePorcentagesOfReturn = function (dataFramePrices, timePeriod){
           dfPricesPorcentagedayPeriod[i,]$porcentage = (precioDespuesTiempo$open) / precioActual
 
     }
+    if(i%%1  00==0){
+      print(i)
+    }
     }
    return(dfPricesPorcentagedayPeriod)
 }
