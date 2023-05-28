@@ -17,6 +17,8 @@ require(brms)
 library(ggplot2)
 library(mltools)
 library(data.table)
+library(dplyr)
+
 ```
 
 ```{r}
@@ -44,6 +46,10 @@ ApplePrices = dfPrices[dfPrices$symbol=="AAPL",]
 ```{r}
 plot(seq(1, length(adjustedPricesApple$date), by=1), adjustedPricesApple$open, type = "l", main="Apple stock prices adjusted by split ", xlab="Time", ylab="Price")
 ```
+```{r}
+plot(seq(1, length(adjustedPricesApple$date), by=1), adjustedPricesApple$open*dfFundamentalsCompanysToTrack$Common.Stocks, type = "l", main="Apple stock prices adjusted by split ", xlab="Time", ylab="Price")
+```
+
 ```{r}
 plot(seq(1, length(ApplePrices$date), by=1), ApplePrices$open, type = "l",  main="Apple stock prices without adjustment ", xlab="Time", ylab="Price")
 ```
@@ -115,7 +121,7 @@ calculatePorcentagesOfReturn = function (dataFramePrices, timePeriod){
   
   dfPricesPorcentagedayPeriod = copy(dataFramePrices)
 
-   dfPricesPorcentagedayPeriod$porcentage = -1000
+   dfPricesPorcentagedayPeriod$porcentage = -10000
   for (i in c(1:(nrow(dfPricesPorcentagedayPeriod)))){
     currentDay =  dfPricesPorcentagedayPeriod[i,]$date
     stockSymbol = dfPricesPorcentagedayPeriod[i,]$symbol
@@ -131,20 +137,64 @@ calculatePorcentagesOfReturn = function (dataFramePrices, timePeriod){
           dfPricesPorcentagedayPeriod[i,]$porcentage = (precioDespuesTiempo$open) / precioActual
 
     }
-    if(i%%1  00==0){
-      print(i)
-    }
-    }
+    #if(i%%100==0){
+    #  print(i)
+    #}
+  }
+   dfPricesPorcentagedayPeriod = dfPricesPorcentagedayPeriod[dfPricesPorcentagedayPeriod$porcentage>-9999,]
    return(dfPricesPorcentagedayPeriod)
 }
 ```
 
+```{r}
+calculatePorcentagesMultipleDays = function(df, timePeriod1,timePeriod2,timePeriod3 ){
+  df = calculatePorcentagesOfReturn(df, timePeriod1)
+  df <- df %>% 
+       rename("porcentageTimePer1" = "porcentage" )
+  df = calculatePorcentagesOfReturn(df, timePeriod2)
+  df <- df %>% 
+       rename("porcentageTimePer2" = "porcentage")
+  df = calculatePorcentagesOfReturn(df, timePeriod3)
+  df <- df %>% 
+       rename("porcentageTimePer3" = "porcentage")
+  return(df)
+
+}
+```
 
 ```{r}
-#dfTest = head(dfPricesAdjustedCompanysToTrack, 467*5)
-dfRes = calculatePorcentagesOfReturn(dfPricesAdjustedCompanysToTrack, 15)
-dfRes
+dfApple = dfPricesAdjustedCompanysToTrack[dfPricesAdjustedCompanysToTrack$symbol=="AAPL",]
+dfGoogle = dfPricesAdjustedCompanysToTrack[dfPricesAdjustedCompanysToTrack$symbol=="GOOGL",]
+dfMicrosoft = dfPricesAdjustedCompanysToTrack[dfPricesAdjustedCompanysToTrack$symbol=="MSFT",]
+dfNike = dfPricesAdjustedCompanysToTrack[dfPricesAdjustedCompanysToTrack$symbol=="NKE",]
+
+dfApple5Days = calculatePorcentagesOfReturn(dfApple, 5)
+dfApple30Days = calculatePorcentagesOfReturn(dfApple, 30)
+dfApple200Days = calculatePorcentagesOfReturn(dfApple, 200)
+dfGoogle5Days = calculatePorcentagesOfReturn(dfGoogle, 5)
+dfGoogle30Days = calculatePorcentagesOfReturn(dfGoogle, 30)
+dfGoogle200Days = calculatePorcentagesOfReturn(dfGoogle, 200)
+dfMicrosoft5days = calculatePorcentagesOfReturn(dfMicrosoft, 5)
+dfMicrosoft30days = calculatePorcentagesOfReturn(dfMicrosoft, 30)
+dfMicrosoft200days = calculatePorcentagesOfReturn(dfMicrosoft, 200)
+dfNike5Days = calculatePorcentagesOfReturn(dfNike, 5)
+dfNike30Days = calculatePorcentagesOfReturn(dfNike, 30)
+dfNike200Days = calculatePorcentagesOfReturn(dfNike, 200)
+
 ```
+
+```{r}
+plot(dfApple200Days$date, dfApple200Days$porcentage-1, 
+    type="l", col="green", xlim=c(min(dfApple200Days$date), max(dfApple5Days$date)),
+    main="Return porcentage with different time windows for Apple stock", xlab="Date", ylab="Return Porcentage")
+
+lines(dfApple30Days$date, dfApple30Days$porcentage-1, col="yellow")
+
+lines(dfApple5Days$date, dfApple5Days$porcentage-1,  col="red")
+legend("topright", legend=c("5 days", "30 days", "200 days"), lwd=3, col= c("red","yellow","green"))
+abline(0,0)
+```
+
 
 ```{r}
 symbol = c(1,2,3,1,2,3,1,2,3,1,2,3,1,2,3,1,2,3)
@@ -155,10 +205,10 @@ df = data.frame(symbol, date, open)
 df
 dfRes = calculatePorcentagesOfReturn(df, 2)
 dfRes1 = dfRes[dfRes$symbol==1 & dfRes$porcentage>-10,]
-plot(dfRes1$date, dfRes1$porcentage-1)
+
 #df[2,]$a = 10
 #df
 #df$porcentage = -1
 #nrow(df[df$c<=6,])
 ```
-
+100000000
