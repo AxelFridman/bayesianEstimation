@@ -1,0 +1,39 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+Interested in the impact of sleep deprivation on reaction time, Belenky et al. (2003) enlisted 18 subjects in a study. The subjects got a regular night’s sleep on “day 0” of the study, and were then restricted to 3 hours of sleep per night for the next 9 days. Each day, researchers recorded the subjects’ reaction times (in ms) on a series of tests. The results are provided in the sleepstudy dataset in the lme4 package.
+
+Exercise 15.3 (Hierarchical data) The sleepstudy data is hierarchical. Draw a diagram in the spirit of Figure 15.8 that captures the hierarchical framework. Think: What are the “groups?”
+
+
+```{r}
+library(lme4)
+library(ggplot2)
+```
+
+```{r}
+dfStudy = lme4::sleepstudy
+```
+
+Los grupos son las personas, y quiero ver como cambia la reaccion en ms segun el dia por cada persona.
+
+```{r}
+ggplot(dfStudy,aes(Days, Reaction) ) +
+  geom_point(aes(color=Subject)) +
+  geom_smooth(method='lm') 
+  labs(x = "flipper_length_mm", y = "body_mass_g")
+```
+It makes the incorrect assumption that reaction times vary equally for all participants. 
+It makes the assumption that no information can be added by differentiating beetwen subjects.
+
+
+```{r}
+ggplot(dfStudy,aes(Days, Reaction, color=Subject) ) +
+  geom_point(aes(color=Subject)) +
+  geom_smooth(method='lm') 
+  labs(x = "flipper_length_mm", y = "body_mass_g")
+```
+
+No pooling has more variability and it can be less robust when there are many groups and a some groups with few data.
